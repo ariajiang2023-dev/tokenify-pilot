@@ -1,0 +1,51 @@
+{
+  "source_url": "https://github.com/chaitanyamalaviya/ExpertQA/blob/main/data/r2_compiled_anon.jsonl",
+  "source_sha256": "b5e3070acb1f1df36bd404db720c3961ccd661531886ecc79d416da85d748ac5",
+  "rows": [
+    {
+      "source_row_zero_based": 279,
+      "area": "medicine_healthcare",
+      "mismatched_field": "computer_science"
+    },
+    {
+      "source_row_zero_based": 282,
+      "area": "medicine_healthcare",
+      "mismatched_field": "statistics"
+    },
+    {
+      "source_row_zero_based": 177,
+      "area": "education_psychology",
+      "mismatched_field": "medicine_healthcare"
+    },
+    {
+      "source_row_zero_based": 978,
+      "area": "education_psychology",
+      "mismatched_field": "computer_science"
+    },
+    {
+      "source_row_zero_based": 195,
+      "area": "computer_science",
+      "mismatched_field": "statistics"
+    },
+    {
+      "source_row_zero_based": 205,
+      "area": "computer_science",
+      "mismatched_field": "medicine_healthcare"
+    },
+    {
+      "source_row_zero_based": 395,
+      "area": "unrelated",
+      "mismatched_field": "computer_science"
+    },
+    {
+      "source_row_zero_based": 469,
+      "area": "unrelated",
+      "mismatched_field": "medicine_healthcare"
+    },
+    {
+      "source_row_zero_based": 509,
+      "area": "unrelated",
+      "mismatched_field": "education_psychology"
+    }
+  ]
+}

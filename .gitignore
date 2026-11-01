@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+*.pem
+*credentials*
+*service-account*
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+runs/

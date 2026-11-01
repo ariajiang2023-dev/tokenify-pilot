@@ -1,0 +1,15 @@
+{
+  "legacy_validation.py": "1fa9d0484108af1713dcfa0d3d8d34997766d8ef420e68db36b6a9d042c879e4",
+  "pilot_lib.py": "29061aec69a5477fa42f92d8ed33b7e628a8a47d4c9734194a40def3dbc31203",
+  "run.py": "78236bd48828099f9f7ce7de91dc65974b6026a73ca11e63f49875aed70bdddf",
+  ".gitignore": "7bc053b54bfcc696c2bfa1a9633c606a43676cc2fd13e86364861d9d8aee09be",
+  ".env.example": "1e0efb678dd50f9fc28e1fbe0d69d57cfabd8070994d9198c32e05c275565433",
+  "README.rst": "79c19ce083b7ac86094ee7fe65180ea03d9764f170330ea7b5226fa1ab012df7",
+  "rubric_v1.txt": "8ec5c22984ffc572e9115011da81c860b07b0636bf52e13fedc9b4416b6fa505",
+  "tests/test_pilot.py": "7040a22beff5ea7c35974ba18cc72d731fb927d1b0c2f2e69ec18a6cf348e3f0",
+  "data/pilot_responses.jsonl": "f25eb40a3abbc73860f2b30ce3e1a7d3dad222992debaee1bfd13fd56b833947",
+  "data/cues_v1.json": "25e9fb3762836587498780d89dfb19aa9bb938fdfa4f9c524b8604d2d8be3ce9",
+  "data/pilot_requests.jsonl": "508436aee69ac478026f4249a39bbf29b5e58b2596dbfe4d10a68d366bbf1cf4",
+  "data/legacy_judgments.jsonl": "fb0e682545ea9e60fe30f25a6870b3959ff63c094f7e09d07f24f4b8d54f15e1",
+  "data/expertqa_selection.json": "65dc79e7328f28af8224b89cd8e944ac2c8c3b4c1e354b91428b79adc3f8fdc1"
+}
