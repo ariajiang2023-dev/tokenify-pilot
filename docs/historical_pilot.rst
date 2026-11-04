@@ -1,3 +1,9 @@
+Historical pilot guide (November 1 baseline)
+===========================================
+
+This guide describes the preserved historical runner. For the current analysis
+commands and repository layout, use the root README.md.
+
 Tokenify pilot
 ==============
 
@@ -6,7 +12,7 @@ and word-sense selection. Python 3.10+; standard library only.
 
 This is the original pilot baseline, packaged for handoff on November 1, 2026.
 The generation and validation logic is extracted from the original project;
-run.py is a new portable command-line wrapper. It does not silently fix the
+run.py is the compatibility entry point for the portable command-line wrapper. It does not silently fix the
 original judge's format failures. Qwen judging, Gemini/OLMo generation, revised
 implicit cues, and the new evaluation rubric are follow-up work.
 
@@ -29,7 +35,7 @@ Quick start (offline; no API calls)
 
 From the repository directory::
 
-    python3 -m unittest discover -s tests -v
+    python3 -m unittest discover -s tests -p test_pilot.py -v
     python3 run.py audit
     python3 run.py export-judge --out runs/judge_jobs.jsonl
 
@@ -100,11 +106,13 @@ Then prepare the historical messages::
 
     python3 run.py prepare-expertqa --source /path/to/r2_compiled_anon.jsonl --out runs/expertqa_requests.jsonl
 
-The source checksum must match data/expertqa_selection.json; this prevents applying
+The source checksum must match data/pilot_v1/expertqa_selection.json; this prevents applying
 row indices to a changed dataset. This command recreates messages, not original
 request IDs or gold answers. Historically the reference concatenated revised_claim
 values from the first lexicographically sorted annotated answer system.
-ExpertQA content scoring is not implemented in this baseline.
+ExpertQA content scoring was not implemented in this historical runner.
+The separate tokenify_analysis package now exports the recorded workbook labels
+and their reference-linked review notes; see the root README.md.
 
 Interpretation and provenance
 -----------------------------

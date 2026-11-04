@@ -1,0 +1,11 @@
+{
+  "repository": "chaitanyamalaviya/ExpertQA",
+  "commit": "1aa7ba81bd4c083c12ef1aa2fee338f6cb60fa87",
+  "path": "data/r2_compiled_anon.jsonl",
+  "source_url": "https://raw.githubusercontent.com/chaitanyamalaviya/ExpertQA/1aa7ba81bd4c083c12ef1aa2fee338f6cb60fa87/data/r2_compiled_anon.jsonl",
+  "blob_sha1": "e61015f73892dc7e3c94736bb6acdcd1c4d3c384",
+  "sha256": "b5e3070acb1f1df36bd404db720c3961ccd661531886ecc79d416da85d748ac5",
+  "bytes": 30057501,
+  "retrieved_utc": "2026-11-03T00:31:56.990355+00:00",
+  "retrieval": "Official URL discovered through connected GitHub directory metadata; downloaded as API data after oversized connector fetch failed."
+}

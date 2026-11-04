@@ -1,0 +1,10 @@
+{
+  "source_url": "https://raw.githubusercontent.com/nltk/nltk_data/5f09e470fe339e1a119dd174ca284129a3c7a5bb/packages/corpora/cmudict.zip",
+  "commit": "5f09e470fe339e1a119dd174ca284129a3c7a5bb",
+  "archive_sha256": "d07cca47fd72ad32ea9d8ad1219f85301eeaf4568f8b6b73747506a71fb5afd6",
+  "files": {
+    "cmudict": "cad209c39eb87677d64e93d97f8eed10b7e6f9bdd42de8e7ca8efc8e17d62e8a",
+    "LICENSE.txt": "b0556be7a2b12bea6a667277b75864f802dd4854480657ce298c62e6897e766b"
+  },
+  "packaging_note": "Upstream README retained verbatim as LICENSE.txt; dictionary bytes unchanged."
+}

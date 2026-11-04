@@ -1,0 +1,2 @@
+* text=auto eol=lf
+tokenify_analysis/_support/nltk_data/corpora/cmudict/LICENSE.txt -text -whitespace

@@ -7,5 +7,15 @@
 .venv/
 __pycache__/
 *.pyc
+*.pyo
 .DS_Store
 runs/
+inputs/
+outputs/
+*.xlsx
+*.xls
+Qwen_pilot_run_records.zip
+tokenify_analysis/_support/expertqa/r2_compiled_anon.jsonl
+tokenify_analysis/_support/nltk_data/corpora/cmudict/cmudict
+tokenify_analysis/_support/nltk_data/corpora/cmudict.zip
+.pytest_cache/
