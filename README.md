@@ -90,6 +90,34 @@ It fails the planned 90% threshold. Agreement on the filtered order-consistent
 subset does not validate the judge. The fixed-prompt rerun remains a separate
 task.
 
+## Prepare full-run analysis
+
+The RQ1–RQ3 analysis and independent-validation sampler are ready to consume
+normalized full outputs. No full generation or new judge run is bundled here.
+See [the input contract and commands](docs/full_run_analysis.md) before Xinyi
+freezes the generation export. The contract preserves response IDs, term/context
+identities, reference orders, ExpertQA author IDs, and first/repeated-run metadata.
+
+```sh
+python -m tokenify_analysis.full_run --input inputs/full_responses.jsonl \
+  --judgments inputs/full_judgments.jsonl --compute-text-metrics \
+  --output-dir outputs/full_analysis --bootstrap 10000 --seed 42
+python -m tokenify_analysis.validation_sample --input inputs/full_responses.jsonl \
+  --n 200 --seed 42 --output-dir outputs/validation_200
+```
+
+Check the pilot rerun without changing the workbook:
+
+```sh
+python -m tokenify_analysis.rerun_check \
+  --workbook inputs/Tokenify_blind_review_SIMPLE.xlsx \
+  --archive inputs/Qwen_pilot_run_records.zip --output-dir outputs/rerun_check
+```
+
+Optional `--run-id` and `--prompt-sha256` record operator-supplied metadata;
+they do not verify the raw run. The package reports when current workbook
+columns still match the archived run.
+
 ## Historical generation and judging
 
 Export the original judge jobs without an API call:
