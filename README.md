@@ -87,8 +87,40 @@ an old annotation.
 
 The archived November 1 Qwen run has **43/54 target-order agreement (79.6%)**.
 It fails the planned 90% threshold. Agreement on the filtered order-consistent
-subset does not validate the judge. The fixed-prompt rerun remains a separate
-task.
+subset does not validate the judge. Use the package audit below for revised
+runs that identify meanings by field name.
+
+## Audit a field-identifier judge rerun
+
+Keep the original input workbook that matches the run's recorded SHA-256 hash.
+The current central workbook may contain newer J/K scores; it can be checked
+separately without changing the frozen source.
+
+```sh
+python -m tokenify_analysis.run_package_audit \
+  --package inputs/Qwen_run3_results_package.zip \
+  --workbook inputs/Tokenify_blind_review_run3_input.xlsx \
+  --score-workbook inputs/Tokenify_blind_review_SIMPLE.xlsx \
+  --output-dir outputs/run3_audit
+```
+
+The command also accepts the extracted package directory. It verifies all 45
+answers and 90 literal JSON outputs, both reference orders, source text,
+normalized field identities, all 54 target scores, and the original human-label
+sources. Declared summary statistics are checked against recomputed values.
+Completed-run metadata must include the model, typed generation settings, job
+counts, and valid input/script/source-workbook hashes. The source-workbook hash
+may be recorded in the summary or run status. Missing provenance is rejected;
+contradictory claims block the acceptance gate. J/K must contain literal scores,
+and retries must follow a recorded invalid output or request failure.
+It checks the packaged score workbook when present. `--score-workbook` is
+optional when auditing the raw package alone.
+
+Outputs are an audit JSON, target-score CSV, and normalized-judgment CSV. Full
+choice-order agreement and target-score agreement are reported separately.
+The numerical rule requires 49/54 matching target scores and, conservatively,
+both all-row kappas at least 0.6. The filtered-subset kappa is descriptive only.
+Raw rerun files and human-label workbooks stay in Box, outside Git.
 
 ## Prepare full-run analysis
 
