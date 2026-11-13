@@ -234,10 +234,11 @@ class SamplingTests(unittest.TestCase):
         rows=term_rows()
         sample=vs.make_sample(fio.normalize_records(rows),n=12,seed=42)
         self.assertEqual(len(sample['blind_rows']),12)
-        allowed={'sample_id','question','reference_a','reference_b','reference_answer','response_text','human_meaning','human_correct','human_notes'}
+        allowed={'sample_id','question','reference_a','reference_b','reference_answer','response_text','human_meaning','human_correct','human_mentioned_a','human_mentioned_b','human_asked_clarification','human_notes'}
         for row in sample['blind_rows']:
             self.assertEqual(set(row),allowed)
             self.assertEqual(row['human_meaning'],'')
+            self.assertTrue(all(row[f]=='' for f in ['human_correct','human_mentioned_a','human_mentioned_b','human_asked_clarification','human_notes']))
             self.assertNotIn('model',row)
         assignments={}
         for row in sample['private_key']:
@@ -257,6 +258,57 @@ class SamplingTests(unittest.TestCase):
             vs.make_sample(fio.normalize_records(term_rows()),n=200)
         with self.assertRaisesRegex(ValueError,'groups'):
             vs.make_sample(fio.normalize_records(term_rows()[:5]),n=5)
+
+    def test_development_manifest_excludes_entire_term_and_author_groups(self):
+        rows=term_rows()+[control('c1','q1','used-author','C0',1,10,reference_answer='A reference.'),
+                          control('c2','q2','fresh-author','C0',1,10,reference_answer='Another reference.')]
+        sample=vs.make_sample(fio.normalize_records(rows),n=7,exclude_manifest={'term_ids':['t1'],'author_ids':['used-author'],'response_ids':['t2C1A']})
+        chosen=sample['private_key']
+        self.assertFalse(any(r['group_id'] in {'term:t1','author:used-author'} or r['response_id']=='t2C1A' for r in chosen))
+        self.assertEqual(sample['metadata']['development_manifest_excluded'],7)
+
+    def test_development_manifest_is_validated_not_silently_ignored(self):
+        for manifest in [{'term_id':['t1']},{'term_ids':'t1'},{'term_ids':['t1','t1']},{'response_ids':['']}]:
+            with self.subTest(manifest=manifest),self.assertRaises(ValueError):
+                vs.make_sample(fio.normalize_records(term_rows()),n=5,exclude_manifest=manifest)
+
+    def test_semantic_term_exclusion_survives_renamed_ids(self):
+        rows=term_rows()
+        for row in rows:row['term']=' Replication ' if row['term_id']=='t1' else row['term_id']
+        sample=vs.make_sample(fio.normalize_records(rows),n=7,exclude_manifest={'schema_version':1,'term_names':['replication']})
+        self.assertTrue(all(row['group_id']!='term:t1' for row in sample['private_key']))
+        self.assertEqual(sample['metadata']['development_manifest_excluded'],5)
+        with self.assertRaisesRegex(ValueError,'term text'):
+            vs.make_sample(fio.normalize_records(term_rows()),n=7,exclude_manifest={'term_names':['replication']})
+
+    def test_padded_ids_cannot_bypass_development_exclusions(self):
+        for field in ['response_ids','term_ids','author_ids']:
+            with self.subTest(manifest_field=field),self.assertRaisesRegex(ValueError,'unpadded'):
+                vs.make_sample(fio.normalize_records(term_rows()),n=5,exclude_manifest={field:[' used ']})
+        for field in ['response_id','term_id','author_id']:
+            rows=term_rows()
+            if field=='response_id':rows[0][field]=' '+rows[0][field]+' '
+            elif field=='term_id':
+                for row in rows:row[field]=' '+row[field]+' '
+            else:rows += [control('extra','q',' used-author ','C0',1,10,reference_answer='A reference.')]
+            with self.subTest(record_field=field),self.assertRaisesRegex(ValueError,'unpadded'):
+                vs.make_sample(fio.normalize_records(rows),n=5,exclude_manifest={'author_ids':['used-author']})
+
+    def test_exclusion_schema_version_is_exact(self):
+        for value in [True,False,2,'1',None]:
+            with self.subTest(version=value),self.assertRaisesRegex(ValueError,'schema version'):
+                vs.make_sample(fio.normalize_records(term_rows()),n=5,exclude_manifest={'schema_version':value})
+
+    def test_semantic_term_names_and_ids_must_have_one_to_one_binding(self):
+        for action in ['one_name_two_ids','one_id_two_names']:
+            rows=term_rows()
+            for row in rows:row['term']='replication' if row['term_id']=='t1' else row['term_id']
+            if action=='one_name_two_ids':
+                for row in rows:
+                    if row['term_id']=='t2':row['term']=' Replication '
+            else:rows[1]['term']='Different word'
+            with self.subTest(action=action),self.assertRaisesRegex(ValueError,'one-to-one'):
+                vs.make_sample(fio.normalize_records(rows),n=7)
 
 
 if __name__=='__main__': unittest.main()

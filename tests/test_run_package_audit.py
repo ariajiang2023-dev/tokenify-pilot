@@ -8,7 +8,7 @@ import zipfile
 
 import openpyxl
 
-from tokenify_analysis.run_package_audit import audit_records, expected_schema, verify_score_workbook
+from tokenify_analysis.run_package_audit import audit_records, expected_schema, verify_score_workbook, verify_serialized_jobs
 
 
 SYSTEM = 'Return rationale first, mentioned second, and choice last.'
@@ -72,6 +72,45 @@ class RunPackageAuditTests(unittest.TestCase):
         self.assertEqual(report['all_rows_kappa_ba'],1)
         self.assertEqual(judgments[1]['normalized_choice'],'A')
         self.assertEqual(len(rows),3)
+
+    def test_withheld_context_requires_explicit_policy_and_exact_payloads(self):
+        data,_,_=fixture()
+        for entry in data['judgments']:
+            del entry['prompt']['student_context']
+            entry['attempts'][0]['messages'][1]['content']=json.dumps(entry['prompt'])
+        with self.assertRaisesRegex(ValueError,'prompt'):
+            self.run_audit(data=data)
+        report,_,_=self.run_audit(data=data,withhold_student_context=True)
+        self.assertEqual(report['student_context_policy'],'withheld')
+        data['judgments'][0]['prompt']['student_context']='No cue'
+        data['judgments'][0]['attempts'][0]['messages'][1]['content']=json.dumps(data['judgments'][0]['prompt'])
+        with self.assertRaisesRegex(ValueError,'prompt'):
+            self.run_audit(data=data,withhold_student_context=True)
+
+    def test_context_policy_cannot_hide_changed_answer_or_reference(self):
+        data,_,_=fixture()
+        for entry in data['judgments']:
+            del entry['prompt']['student_context']
+            entry['attempts'][0]['messages'][1]['content']=json.dumps(entry['prompt'])
+        data['judgments'][0]['prompt']['answer']='Changed answer'
+        with self.assertRaisesRegex(ValueError,'prompt'):
+            self.run_audit(data=data,withhold_student_context=True)
+
+    def test_original_serialized_jobs_bind_hash_messages_and_coverage(self):
+        data,_,_=fixture()
+        jobs=[dict(response_id=e['id'],order=e['order'],messages=copy.deepcopy(e['attempts'][0]['messages']),schema=copy.deepcopy(e['schema'])) for e in data['judgments']]
+        def serialize(values):return ''.join(json.dumps(x)+'\n' for x in values).encode()
+        raw=serialize(jobs);data['config']['input_sha256']=hashlib.sha256(raw).hexdigest()
+        verify_serialized_jobs(raw,data)
+        with self.assertRaisesRegex(ValueError,'hash'):verify_serialized_jobs(raw+b'\n',data)
+        for action in ['missing','duplicate','message','schema']:
+            changed=copy.deepcopy(jobs)
+            if action=='missing':changed.pop()
+            elif action=='duplicate':changed.append(copy.deepcopy(changed[0]))
+            elif action=='message':changed[0]['messages'][1]['content']='Changed answer'
+            else:changed[0]['schema']['properties'].pop('choice')
+            encoded=serialize(changed);data['config']['input_sha256']=hashlib.sha256(encoded).hexdigest()
+            with self.subTest(action=action),self.assertRaises(ValueError):verify_serialized_jobs(encoded,data)
 
     def test_swapped_presentation_must_keep_exact_reference_identities(self):
         data,_,_=fixture()

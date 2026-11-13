@@ -122,6 +122,14 @@ The numerical rule requires 49/54 matching target scores and, conservatively,
 both all-row kappas at least 0.6. The filtered-subset kappa is descriptive only.
 Raw rerun files and human-label workbooks stay in Box, outside Git.
 
+For Run 4, add `--withhold-student-context` and use its frozen input workbook.
+This explicitly requires the context to be absent from every call payload;
+answer and reference matching remains exact. If the package includes the
+original `jobs.jsonl`, its input hash, complete job identities, messages, and
+schemas are checked against the saved calls. A packaged Run 4 score workbook
+is also verified. Numerical acceptance on a tuned pilot does not replace the
+later independent full-output validation.
+
 ## Prepare full-run analysis
 
 The RQ1–RQ3 analysis and independent-validation sampler are ready to consume

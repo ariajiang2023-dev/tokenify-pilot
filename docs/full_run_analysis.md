@@ -175,6 +175,7 @@ After full generation, freeze the sample before prompt tuning:
 ```sh
 python -m tokenify_analysis.validation_sample \
   --input inputs/full_responses.jsonl --n 200 --seed 42 \
+  --exclude-manifest inputs/Validation_development_exclusions_v1.json \
   --output-dir outputs/validation_200
 ```
 
@@ -191,6 +192,26 @@ condition, author, original response IDs, split membership, draft labels, judge
 labels, and rationales are absent. Keep `private/` with the analyst. The command
 refuses to overwrite a nonempty output directory. No coding decisions are
 prefilled. Correctness validation requires independent human labels.
+
+The exclusion manifest accepts `schema_version: 1` and lists of `response_ids`,
+`term_ids`, `term_names`, and `author_ids`. Exclusions apply across every model
+and condition. Term names are normalized for case and whitespace, so changing
+an ID does not make a development term eligible. When `term_names` is present,
+every main term row must also contain its literal `term` text; missing names
+are rejected. Literal term text and term IDs must have a one-to-one binding
+across responses wherever term text is present. Response, term and author IDs
+must have no leading or trailing whitespace, in both the manifest and eligible
+records. ExpertQA author exclusions cover every question by that released
+author. These are validation-sample exclusions, not changes to the generation
+pool or the RQ analysis population. The private metadata records the exclusion
+manifest hash and the number of otherwise eligible responses removed.
+
+The two coders and adjudicator receive blank `human_meaning`, `human_correct`,
+`human_mentioned_a`, `human_mentioned_b`, `human_asked_clarification`, and
+`human_notes` fields. The meaning and mention fields support validation of RQ3
+as well as the target 0/1 score. No previous pilot decisions are copied into
+these columns. A 200-response packet cannot be drawn from a smaller pilot;
+the command fails when fewer than 200 eligible main responses remain.
 
 Numerical dependencies
 ----------------------

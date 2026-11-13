@@ -20,7 +20,7 @@ FIELDS = {'computer science':'computer_science', 'medicine/healthcare':'medicine
 NON_REFERENCE = {'multiple','other','no_answer'}
 PACKAGE_FILES = ('results.json','score_rows.json','summary.json','run_status.json',
                  'judge_prompt.txt','judge.py')
-OPTIONAL_FILES = ('Tokenify_blind_review_Qwen_run3.xlsx',)
+OPTIONAL_FILES = ('Tokenify_blind_review_Qwen_run3.xlsx','Tokenify_blind_review_Qwen_run4.xlsx','jobs.jsonl')
 RETRY_SUFFIX = '. Re-evaluate the supplied answer and return a complete valid JSON object. no_answer is permitted only when there is no definition at all.'
 
 
@@ -156,7 +156,7 @@ def _check_claim(discrepancies,path,actual,claimed):
     if not same: discrepancies.append(dict(field=path,computed=actual,claimed=claimed))
 
 
-def audit_records(data,authority, *, score_rows=None,summary=None,run_status=None,system_prompt=None):
+def audit_records(data,authority, *, score_rows=None,summary=None,run_status=None,system_prompt=None,withhold_student_context=False):
     """Pure audit of raw judgments; package scores and summaries are comparison data."""
     canonical=authority['records']; mapping=authority['mapping']; humans=authority['humans']
     if data.get('mapping')!=mapping: raise ValueError('Package score mapping differs from the complete authoritative mapping')
@@ -174,6 +174,7 @@ def audit_records(data,authority, *, score_rows=None,summary=None,run_status=Non
             raise ValueError(f'Incomplete judgment status or attempts: {key}')
         record=canonical[rid]; labels=labels_for(record)
         prompt=dict(term=record['term'],student_context=record['context'],references=[dict(id=labels[s],definition=record['references'][s]) for s in order],answer=record['answer'])
+        if withhold_student_context:del prompt['student_context']
         if entry.get('labels')!=labels or entry.get('prompt')!=prompt: raise ValueError(f'Changed canonical labels or prompt identity: {key}')
         schema=expected_schema(labels)
         if entry.get('schema')!=schema or list(entry['schema']['properties']['mentioned']['properties'])!=sorted(labels.values()):
@@ -263,7 +264,8 @@ def audit_records(data,authority, *, score_rows=None,summary=None,run_status=Non
                 record_integrity_pass=not discrepancies,package_claim_discrepancies=discrepancies,pilot_gate_status=status,
                 structural_coherence_flags=[],
                 policy='At least 90% of all target rows must agree across reference orders. This conservative check requires both all-row kappas >=0.6. Filtered-subset kappa is descriptive only. Numerical thresholds do not establish semantic validity or settle the policy for conflicting orders.',
-                source_identity='Every saved call prompt, answer, context and reference is matched to the authoritative workbook; all human scores come from its original sources and adjudications.',
+                student_context_policy='withheld' if withhold_student_context else 'included',
+                source_identity='Every saved answer and reference is matched to the authoritative workbook. Each call payload must exactly match the declared student-context policy; all human scores come from original sources and adjudications.',
                 original_input_file_hash_status='Declared input hash is retained; the original serialized input file is not in this package.',
                 configuration=dict(options=config.get('options'),think=config.get('think'),workers=config.get('workers'),runtime=config.get('runtime'),input_sha256=config.get('input_sha256'),prompt_sha256=hashlib.sha256(config['system'].encode()).hexdigest(),fingerprint=config['fingerprint']))
     return report,rows,judgments
@@ -310,20 +312,39 @@ def verify_score_workbook(content,authority,rows,label):
     finally:wb.close();formulas.close()
 
 
-def audit_package(package,workbook, *, score_workbook=None):
+def verify_serialized_jobs(content,data):
+    """Bind the original serialized jobs to both configuration and saved calls."""
+    if hashlib.sha256(content).hexdigest()!=data['config']['input_sha256']:
+        raise ValueError('Original serialized jobs hash differs from run configuration')
+    jobs=[literal_json(line) for line in content.decode().splitlines() if line.strip()]
+    saved={(entry['id'],entry['order']):entry for entry in data['judgments']};seen=set()
+    for job in jobs:
+        key=(job.get('response_id'),job.get('order'))
+        if key not in saved or key in seen:raise ValueError('Original jobs have unknown or duplicate identities')
+        seen.add(key);entry=saved[key]
+        if job.get('messages')!=entry['attempts'][0]['messages'] or job.get('schema')!=entry['schema']:
+            raise ValueError('Original serialized job differs from saved call')
+    if seen!=set(saved):raise ValueError('Original serialized jobs do not cover all saved calls')
+
+
+def audit_package(package,workbook, *, score_workbook=None,withhold_student_context=False):
     content=_package_bytes(package);data=literal_json(content['results.json'].decode());scores=literal_json(content['score_rows.json'].decode())
     summary=literal_json(content['summary.json'].decode());status=literal_json(content['run_status.json'].decode())
     authority=read_authority(workbook)
-    report,rows,judgments=audit_records(data,authority,score_rows=scores,summary=summary,run_status=status,system_prompt=content['judge_prompt.txt'].decode())
+    report,rows,judgments=audit_records(data,authority,score_rows=scores,summary=summary,run_status=status,system_prompt=content['judge_prompt.txt'].decode(),withhold_student_context=withhold_student_context)
     script_hash=hashlib.sha256(content['judge.py']).hexdigest()
     if status.get('script_sha256')!=script_hash: raise ValueError('Packaged script hash differs from run status')
-    if 'Tokenify_blind_review_Qwen_run3.xlsx' in content:
-        verify_score_workbook(content['Tokenify_blind_review_Qwen_run3.xlsx'],authority,rows,'Packaged workbook')
+    for name in OPTIONAL_FILES:
+        if name.endswith('.xlsx') and name in content:
+            verify_score_workbook(content[name],authority,rows,'Packaged workbook')
+    if 'jobs.jsonl' in content:
+        verify_serialized_jobs(content['jobs.jsonl'],data)
+        report['original_input_file_hash_status']='Original serialized jobs hash and all saved call messages/schema verified.'
     if score_workbook is not None:
         verify_score_workbook(Path(score_workbook).read_bytes(),authority,rows,'Current score workbook')
     report['source_sha256']={**{name:hashlib.sha256(value).hexdigest() for name,value in content.items()},'authoritative_workbook':authority['sha256']}
     if score_workbook is not None:report['source_sha256']['current_score_workbook']=hashlib.sha256(Path(score_workbook).read_bytes()).hexdigest()
-    report['packaged_workbook_scores_verified']='Tokenify_blind_review_Qwen_run3.xlsx' in content
+    report['packaged_workbook_scores_verified']=any(name.endswith('.xlsx') and name in content for name in OPTIONAL_FILES)
     report['current_score_workbook_verified']=score_workbook is not None;report['packaged_script_hash_verified']=True
     return report,rows,judgments
 
@@ -332,8 +353,9 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--package',type=Path,required=True);parser.add_argument('--workbook',type=Path,required=True,help='Frozen input workbook matching the run source hash')
     parser.add_argument('--score-workbook',type=Path,help='Optional current central workbook with the verified run scores pasted into J/K')
+    parser.add_argument('--withhold-student-context',action='store_true',help='Require every judge payload to omit the student context, as in Run 4')
     parser.add_argument('--output-dir',type=Path,required=True)
-    args=parser.parse_args(argv);report,rows,judgments=audit_package(args.package,args.workbook,score_workbook=args.score_workbook)
+    args=parser.parse_args(argv);report,rows,judgments=audit_package(args.package,args.workbook,score_workbook=args.score_workbook,withhold_student_context=args.withhold_student_context)
     paths={args.output_dir/name for name in ['run_package_audit.json','target_scores.csv','judgments.csv']}
     inputs={args.workbook.resolve(),args.package.resolve()}
     if args.score_workbook:inputs.add(args.score_workbook.resolve())
