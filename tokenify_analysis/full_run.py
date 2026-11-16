@@ -143,7 +143,7 @@ def _control_analysis(rows,bootstrap,seed):
         baselines=[r for r in group if r['condition']=='C0']
         if len(baselines)>1: raise ValueError(f'Multiple C0 control baselines: {model}/{item}')
         baseline=baselines[0] if baselines else None
-        for condition in ['C1','C2','C3']:
+        for condition in sorted(group[0]['expected_cue_fields']):
             cued=[r for r in group if r['condition']==condition]
             expected=set(group[0]['expected_cue_fields'][condition])
             observed={r['cue_field'] for r in cued}

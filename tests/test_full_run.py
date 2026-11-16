@@ -47,6 +47,27 @@ def control(rid,item,author,condition,correct,n_words,**kw):
 
 
 class InputTests(unittest.TestCase):
+    def test_unrelated_controls_declare_c3_only_without_fake_conditions(self):
+        design={'C3':['CS']}
+        rows=[control('u0','u','author','C0',1,10,expected_cue_fields=design),
+              control('u3','u','author','C3',1,15,expected_cue_fields=design)]
+        normalized=fio.normalize_records(rows)
+        result=fr.analyze(normalized,bootstrap=100)
+        self.assertEqual({r['condition'] for r in result['rq2']},{'C3'})
+        self.assertFalse(any(r['reason']=='incomplete_cue_coverage' for r in result['coverage']['missing_rq2_pairs']))
+        with self.assertRaisesRegex(ValueError,'declared expected_cue_fields'):
+            fio.normalize_records([{**rows[1],'condition':'C1'}])
+        with self.assertRaisesRegex(ValueError,'expected_cue_fields'):
+            fio.normalize_records([{**rows[0],'expected_cue_fields':{'C3':[]}}])
+
+    def test_explicit_empty_or_blocked_completion_preserves_empty_text(self):
+        for status in ['empty','blocked']:
+            with self.subTest(status=status):
+                got=fio.normalize_records([response('empty',response_text='',completion_status=status)])
+                self.assertEqual(got[0]['response_text'],'')
+        with self.assertRaisesRegex(ValueError,'response_text'):
+            fio.normalize_records([response('empty',response_text='',completion_status='ok')])
+
     def test_duplicate_response_and_design_cells_are_rejected(self):
         rows=term_rows()
         with self.assertRaisesRegex(ValueError,'Duplicate response_id'):
@@ -230,6 +251,27 @@ class AnalysisTests(unittest.TestCase):
 
 
 class SamplingTests(unittest.TestCase):
+    def test_reviewed_model_job_is_excluded_across_response_versions_only_for_that_model(self):
+        rows=term_rows()
+        for row in rows:row['generation_job_id']=row['response_id']
+        rows[0]['generation_job_id']='reviewed';rows[0]['response_id']='new-version';rows[0]['request_id']='new-version'
+        other={**rows[0],'model':'m2','response_id':'other-model','request_id':'other-model'}
+        got=vs.make_sample(fio.normalize_records(rows+[other]),n=15,exclude_manifest={'model_job_ids':{'m1':['reviewed']}})
+        selected={r['response_id'] for r in got['private_key']}
+        self.assertNotIn('new-version',selected);self.assertIn('other-model',selected)
+        self.assertEqual(got['metadata']['development_manifest_excluded'],1)
+        missing=copy.deepcopy(rows);missing[0].pop('generation_job_id')
+        with self.assertRaisesRegex(ValueError,'generation_job_id'):
+            vs.make_sample(fio.normalize_records(missing),n=5,exclude_manifest={'model_job_ids':{'m1':['reviewed']}})
+        padded=copy.deepcopy(rows);padded[0]['model']=' m1 '
+        with self.assertRaisesRegex(ValueError,'unpadded'):
+            vs.make_sample(fio.normalize_records(padded),n=5,exclude_manifest={'model_job_ids':{'m1':['reviewed']}})
+
+    def test_model_job_exclusions_reject_malformed_or_padded_bindings(self):
+        for value in [[],{'m1':'job'},{' m1':['job']},{'m1':[' job']},{'m1':['job','job']}]:
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                vs.make_sample(fio.normalize_records(term_rows()),n=5,exclude_manifest={'model_job_ids':value})
+
     def test_blind_exports_and_grouped_frozen_split(self):
         rows=term_rows()
         sample=vs.make_sample(fio.normalize_records(rows),n=12,seed=42)

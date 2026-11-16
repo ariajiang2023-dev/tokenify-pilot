@@ -45,7 +45,7 @@ def normalize_records(records):
     out=[]; ids=set(); requests=set(); cells=set(); items={}; term_references={}; control_designs={}; term_questions={}
     for source in records:
         row={ALIASES.get(k,k):v for k,v in source.items()}
-        missing=[k for k in REQUIRED if k not in row or _missing(row[k])]
+        missing=[k for k in REQUIRED if k not in row or (_missing(row[k]) and not (k=='response_text' and row.get('completion_status') in {'empty','blocked'}))]
         if missing: raise ValueError(f'Missing required fields: {sorted(missing)}')
         for field in ['response_id','request_id','model','item_id']:
             if not isinstance(row[field],str) or not row[field].strip(): raise ValueError(f'Invalid {field}')
@@ -103,8 +103,8 @@ def normalize_records(records):
             if isinstance(design,str):
                 try: design=json.loads(design)
                 except ValueError as exc: raise ValueError('expected_cue_fields must be a JSON object') from exc
-            if not isinstance(design,dict) or set(design)!={'C1','C2','C3'}:
-                raise ValueError('ExpertQA rows require expected_cue_fields for C1, C2, C3 from the frozen manifest')
+            if not isinstance(design,dict) or set(design) not in ({'C1','C2','C3'},{'C3'}):
+                raise ValueError('ExpertQA rows require the frozen C1/C2/C3 or unrelated-control C3 expected_cue_fields design')
             for condition,field_list in design.items():
                 if not isinstance(field_list,list) or not field_list or any(not isinstance(f,str) or not f.strip() for f in field_list) or len(field_list)!=len(set(field_list)):
                     raise ValueError('expected_cue_fields lists must be nonempty, unique field names')
@@ -113,7 +113,7 @@ def normalize_records(records):
             if design_key in control_designs and control_designs[design_key]!=row['expected_cue_fields']:
                 raise ValueError('Inconsistent expected_cue_fields for one model/item')
             control_designs[design_key]=row['expected_cue_fields']
-            if row['condition']!='C0' and row['cue_field'] not in row['expected_cue_fields'][row['condition']]:
+            if row['condition']!='C0' and row['cue_field'] not in row['expected_cue_fields'].get(row['condition'],[]):
                 raise ValueError('Control cue_field is not in declared expected_cue_fields')
             row['context_index']=None
             if row['condition']=='C2-R': raise ValueError('C2-R is a term pilot diagnostic only')

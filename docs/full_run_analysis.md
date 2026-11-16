@@ -4,8 +4,10 @@ Full-run analysis contract
 The full generation has not been run by these tools. The example under
 `data/examples/` is entirely synthetic and is only a software check.
 The planned primary run uses 60 approved nonpilot terms, each with a standalone
-question and five contexts, plus 420 ExpertQA controls. Models are analyzed
-separately. A later decision to drop a model does not require code changes.
+question and five contexts. The control set must follow the current frozen
+manifest; the November 15 analysis set has 389 ExpertQA questions after the
+documented pre- and post-generation exclusions. Models are analyzed separately.
+A later decision to drop a model does not require code changes.
 
 Commands
 --------
@@ -98,7 +100,10 @@ For **ExpertQA rows**, also supply:
 - `expected_cue_fields`: exact per-item, per-model cue allocation from the frozen
   generation manifest, for example `{"C1":["CS"],"C2":["CS"],"C3":["HLTH"]}`.
   Include this object on C0 and every cued row; a CSV cell contains its JSON text.
-  Each condition needs a nonempty field list. Do not reconstruct the lists from
+  In-field questions declare C1/C2/C3; unrelated controls declare only
+  `{"C3":["CS"]}` (with the assigned wrong-cue field). Do not invent C1/C2
+  jobs or report them missing for the unrelated set. Each declared condition
+  needs a nonempty field list. Do not reconstruct the lists from
   the rows that happened to finish. Missing declared cues exclude the item from
   that condition's paired metrics, including when only C0 is present.
 - `reference_answer`: verified expert answer, required before exporting coding
@@ -206,12 +211,33 @@ author. These are validation-sample exclusions, not changes to the generation
 pool or the RQ analysis population. The private metadata records the exclusion
 manifest hash and the number of otherwise eligible responses removed.
 
+For reviewed main-generation responses, `model_job_ids` maps each exact model
+ID to its reviewed generation job IDs, for example `{"model-A":["term1_C1"]}`.
+Rows from those models must supply the unchanged `generation_job_id`; this
+excludes later rerun versions even when their response hashes change. The same
+job ID from a different model remains eligible unless another exclusion applies.
+Model and generation-job IDs must be unpadded. Keep the original job/response
+mapping and the source-bound review manifest in the analysis handoff. Do not
+copy review decisions into the blank human-coding columns.
+
 The two coders and adjudicator receive blank `human_meaning`, `human_correct`,
 `human_mentioned_a`, `human_mentioned_b`, `human_asked_clarification`, and
 `human_notes` fields. The meaning and mention fields support validation of RQ3
 as well as the target 0/1 score. No previous pilot decisions are copied into
 these columns. A 200-response packet cannot be drawn from a smaller pilot;
-the command fails when fewer than 200 eligible main responses remain.
+the command fails when fewer than 200 eligible main responses remain. Having
+200 eligible rows from a single completed model is not sufficient to freeze a
+study-wide sample: first freeze the final model list, final response versions,
+residual-cap policy and source hashes. Explicit empty or blocked completions
+retain an empty response string; an ordinary `ok` response cannot be empty.
+
+Use verified extended response versions as the primary length dataset. Keep
+original 512-token answers and extended uncapped answers as separate sensitivity
+datasets on the same retained item population. In an uncapped paired contrast,
+retain the pair only when both the C0 and cued response are uncapped. C1 and C2
+differ in wording and conversation format, so their length difference does not
+identify an effect of cue implicitness alone. Descriptive length/readability
+measurements do not establish the judge-dependent RQs before validation.
 
 Numerical dependencies
 ----------------------

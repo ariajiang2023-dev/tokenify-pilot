@@ -25,21 +25,29 @@ def _allocate(strata,n):
 
 def make_sample(records,*,n=200,seed=42,exclude_manifest=None):
     manifest={} if exclude_manifest is None else exclude_manifest
-    allowed={'response_ids','term_ids','term_names','author_ids'}
+    allowed={'response_ids','term_ids','term_names','author_ids','model_job_ids'}
     if isinstance(manifest,dict) and 'schema_version' in manifest:
         if type(manifest['schema_version']) is not int or manifest['schema_version']!=1:raise ValueError('Unsupported development exclusion schema version')
         manifest={k:v for k,v in manifest.items() if k!='schema_version'}
     if not isinstance(manifest,dict) or set(manifest)-allowed:raise ValueError('Development exclusion manifest has unknown fields')
+    model_jobs=manifest.get('model_job_ids',{})
+    if not isinstance(model_jobs,dict):raise ValueError('model_job_ids requires a model-to-job-ID object')
+    for model,jobs in model_jobs.items():
+        if not isinstance(model,str) or not model or model!=model.strip():raise ValueError('model_job_ids requires unpadded model IDs')
+        if not isinstance(jobs,list) or any(not isinstance(j,str) or not j or j!=j.strip() for j in jobs) or len(jobs)!=len(set(jobs)):
+            raise ValueError('model_job_ids requires unique unpadded job IDs')
     for field,values in manifest.items():
+        if field=='model_job_ids':continue
         if not isinstance(values,list) or any(not isinstance(v,str) or not v.strip() for v in values) or len(values)!=len(set(values)):
             raise ValueError(f'{field} requires unique nonempty IDs')
         if field!='term_names' and any(v!=v.strip() for v in values):
             raise ValueError(f'{field} requires unpadded IDs')
-    blocked={k:set(manifest.get(k,[])) for k in allowed}
+    blocked={k:set(manifest.get(k,[])) for k in allowed-{'model_job_ids'}}
     blocked['term_names']={' '.join(t.casefold().split()) for t in blocked['term_names']}
     eligible=[r for r in records if exclusion_reason(r) is None]
     for row in eligible:
-        fields=['response_id','term_id' if row['set']=='terms' else 'author_id']
+        fields=['model','response_id','term_id' if row['set']=='terms' else 'author_id']
+        if row['model'] in model_jobs:fields.append('generation_job_id')
         for field in fields:
             value=row.get(field)
             if not isinstance(value,str) or not value or value!=value.strip():
@@ -55,7 +63,7 @@ def make_sample(records,*,n=200,seed=42,exclude_manifest=None):
             raise ValueError('Validation term text and term IDs require a one-to-one binding across all responses')
         name_to_id[name]=term_id;id_to_name[term_id]=name
     def used(row):
-        return row['response_id'] in blocked['response_ids'] or (row['set']=='terms' and (row['term_id'] in blocked['term_ids'] or ' '.join(str(row.get('term','')).casefold().split()) in blocked['term_names'])) or (row['set']=='expertqa' and row['author_id'] in blocked['author_ids'])
+        return row['response_id'] in blocked['response_ids'] or row.get('generation_job_id') in model_jobs.get(row['model'],[]) or (row['set']=='terms' and (row['term_id'] in blocked['term_ids'] or ' '.join(str(row.get('term','')).casefold().split()) in blocked['term_names'])) or (row['set']=='expertqa' and row['author_id'] in blocked['author_ids'])
     rows=[r for r in eligible if not used(r)]
     if n<2 or n>len(rows): raise ValueError(f'Requested {n} responses; {len(rows)} available')
     strata=defaultdict(list)
@@ -103,7 +111,7 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input',type=Path,required=True);parser.add_argument('--output-dir',type=Path,required=True)
     parser.add_argument('--n',type=int,default=200);parser.add_argument('--seed',type=int,default=42)
-    parser.add_argument('--exclude-manifest',type=Path,help='JSON lists of previously used response_ids, term_ids and author_ids to exclude')
+    parser.add_argument('--exclude-manifest',type=Path,help='JSON exclusions for pilot IDs/groups and model-bound generation job IDs')
     args=parser.parse_args(argv)
     if args.output_dir.exists() and any(args.output_dir.iterdir()): raise ValueError('Output directory is not empty; do not overwrite a frozen sample')
     exclusions=json.loads(args.exclude_manifest.read_text()) if args.exclude_manifest else None
